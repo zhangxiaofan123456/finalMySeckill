@@ -4,12 +4,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.Date;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class PromotionSeckill {
+public class PromotionSeckill implements Serializable {
     private Integer psId;
     private Integer goodsId;
     private Integer goodsCount;

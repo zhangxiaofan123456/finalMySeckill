@@ -7,8 +7,8 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 @Mapper
 public interface SeckillDao {
-    public List<PromotionSeckill> findUnstartSeckill();
-    public void update(PromotionSeckill promotionSeckill);
-    public List<PromotionSeckill> findExpireSeckill();
-    public   PromotionSeckill  findByPsId(@Param("value") Integer psId);
+     List<PromotionSeckill> findUnstartSeckill();
+     void update(PromotionSeckill promotionSeckill);
+     List<PromotionSeckill> findExpireSeckill();
+     PromotionSeckill  findByPsId(@Param("value") Integer psId);
 }

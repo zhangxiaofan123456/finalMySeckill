@@ -5,7 +5,10 @@ import com.heida.constant.GlobalConstant;
 import com.heida.dao.SeckillDao;
 import com.heida.entity.PromotionSeckill;
 import com.heida.service.SeckillService;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.support.CorrelationData;
+import org.springframework.context.annotation.Scope;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -38,16 +41,7 @@ public class SeckillServiceImpl implements SeckillService {
         Integer goodsId =(Integer) redisTemplate.opsForList().leftPop("seckill:count:" + seckill.getPsId());
         //弹出成功就给用户存一个令牌
         if (goodsId!=null){
-            //判断用户是否重复秒杀了
-            Boolean isRepeat = redisTemplate.opsForSet().isMember("seckill:users:" + seckill.getPsId(), userId);
-            if (!isRepeat){
-                System.out.println("抢到商品了");
-                redisTemplate.opsForSet().add("seckill:users:"+seckill.getPsId(),userId);
-            }else {
-                //如果重复了把刚才弹出去的加上
-                redisTemplate.opsForList().rightPush("seckill:count:" + seckill.getPsId(),seckill.getGoodsId());
-                throw new SeckillException("您已经参加过此活动");
-            }
+            redisTemplate.opsForSet().add("seckill:users:"+seckill.getPsId(),userId);
         }else {
             throw new SeckillException("商品已经被抢光了");
         }
@@ -55,14 +49,46 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     @Override
+    @Scope("prototype")
     public String sendOrderToQueue(Integer userId) {
+
+        RabbitTemplate.ConfirmCallback confirmCallback= new RabbitTemplate.ConfirmCallback() {
+            @Override
+            public void confirm(CorrelationData correlationData, boolean b, String s) {
+                //消息被mq拒收或者接收都会通过这个方法
+                //correlationData消息的id
+                //b为true代表消息被接收
+                //s是消息被拒绝的原因
+                System.out.println("000"+correlationData);
+                System.out.println(b);
+                System.out.println(s);
+            }
+        };
+        RabbitTemplate.ReturnCallback returnCallback = new RabbitTemplate.ReturnCallback() {
+            @Override
+            public void returnedMessage(Message message, int i, String s, String s1, String s2) {
+                //参数依次为被退回的消息、错误编码、错误描述、交换机的名字、路由键
+                System.out.println(message);
+                System.out.println(i);
+                System.out.println(s);
+                System.out.println(s1);
+                System.out.println(s2);
+            }
+        };
+
+
         System.out.println("向队列中发送消息");
         Map<String,Object> data=new HashMap();
         String orderNo = UUID.randomUUID().toString();
         data.put("userId",userId);
         data.put("orderNo",orderNo);
+        //这个方法无论成功失败都会进入
+        //rabbitTemplate.setConfirmCallback(confirmCallback);
+        //只有失败才进入
+        //rabbitTemplate.setReturnCallback(returnCallback);
         //把data发给交换机
         rabbitTemplate.convertAndSend("exchange-order",null,data);
+        System.out.println("111"+data);
         return orderNo;
     }
 }
